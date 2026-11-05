@@ -9,12 +9,16 @@ import android.widget.*
 import android.graphics.Color
 import android.content.Intent
 import android.net.Uri
-import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : Activity() {
+    // android.app.Activity is not a LifecycleOwner; use an activity-owned coroutine scope.
+    private val activityScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private lateinit var vault: TokenVault
     private lateinit var status: TextView
     private lateinit var output: TextView
@@ -162,7 +166,7 @@ class MainActivity : Activity() {
         val token = vault.read()
         if (token.isNullOrBlank()) { showError("Da farko saka GitHub token mai izinin Actions read/write."); return }
         status.text = "Status: Ana aika aikin..."
-        lifecycleScope.launch {
+        activityScope.launch {
             try {
                 withContext(Dispatchers.IO) { GitHubClient(token).dispatch(type, payload) }
                 status.text = "Status: An aika aikin. Danna CHECK LATEST JOB STATUS."
@@ -223,6 +227,11 @@ class MainActivity : Activity() {
                 } else showError("Ba a sami artifact ba. Jira job ya gama.")
             } catch (e: Exception) { showError(e.message ?: "Artifact bai samu ba") }
         }
+    }
+
+    override fun onDestroy() {
+        activityScope.cancel()
+        super.onDestroy()
     }
 
     private fun showError(message: String) {
