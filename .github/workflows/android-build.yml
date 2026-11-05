@@ -9,14 +9,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: ashuru-cloud-pc-apk-${{ github.ref }}
+  group: ashiru-cloud-pc-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     name: Build Android debug APK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -27,25 +30,26 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK components
+      # GitHub's Ubuntu 24.04 runner already includes Android SDK,
+      # platform 35 and build-tools 35.0.0. Avoid setup-android@v3:
+      # it fails on newer ubuntu-latest runner images.
+      - name: Verify preinstalled Android SDK
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          java -version
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+          echo "Android SDK: $ANDROID_HOME"
+          ls "$ANDROID_HOME/platforms"
+          ls "$ANDROID_HOME/build-tools"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Verify build environment
-        run: |
-          java -version
-          gradle --version
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -d "$ANDROID_HOME/platforms/android-35"
+      - name: Verify Gradle
+        run: gradle --version
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace assembleDebug
