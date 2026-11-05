@@ -1,0 +1,108 @@
+name: Ashiru Cloud Job
+
+on:
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: "Approved job type"
+        required: true
+        type: choice
+        options:
+          - system_info
+          - terminal
+          - python
+          - build_apk
+      payload:
+        description: "Command or Python source (limited to 12,000 characters)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ashcloud-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  cloud-job:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Execute approved job
+        env:
+          JOB_TYPE: ${{ inputs.job_type }}
+          JOB_PAYLOAD: ${{ inputs.payload }}
+        run: |
+          python3 - <<'PY'
+          import os, sys, shlex, subprocess, pathlib, platform, datetime
+          kind = os.environ.get("JOB_TYPE", "")
+          payload = os.environ.get("JOB_PAYLOAD", "")[:12000]
+          out = pathlib.Path("cloud-output")
+          out.mkdir(exist_ok=True)
+          log = out / "result.txt"
+
+          def run(args):
+              p = subprocess.run(args, cwd=os.getcwd(), text=True,
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                 timeout=300, shell=False)
+              return p.returncode, p.stdout
+
+          if kind == "system_info":
+              result = "\n".join([
+                  "ASHIRU CLOUD PC - SYSTEM INFO",
+                  "UTC: " + datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                  "OS: " + platform.platform(),
+                  "CPU: " + platform.processor(),
+                  "Python: " + sys.version,
+                  "Working directory: " + os.getcwd(),
+              ])
+          elif kind == "terminal":
+              try:
+                  args = shlex.split(payload)
+                  allowed = {
+                      ("pwd",), ("ls",), ("ls", "-la"), ("python3", "--version"),
+                      ("uname", "-a"), ("df", "-h"), ("free", "-h"),
+                      ("whoami",), ("date", "-u")
+                  }
+                  if tuple(args) not in allowed:
+                      raise ValueError("Command not allowed. Allowed: pwd, ls, ls -la, python3 --version, uname -a, df -h, free -h, whoami, date -u")
+                  code, result = run(args)
+                  if code != 0:
+                      raise RuntimeError(result)
+              except Exception as exc:
+                  result = "Terminal error: " + str(exc)
+          elif kind == "python":
+              script = out / "user_task.py"
+              script.write_text(payload, encoding="utf-8")
+              p = subprocess.run([sys.executable, str(script)], cwd=os.getcwd(),
+                                 text=True, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, timeout=300, shell=False)
+              result = p.stdout
+              if p.returncode != 0:
+                  result += "\nPython exit code: " + str(p.returncode)
+          elif kind == "build_apk":
+              result = "APK build requested. Gradle build is handled by the dedicated Android workflow."
+          else:
+              result = "Rejected unknown job type: " + kind
+              sys.exit(2)
+
+          log.write_text(str(result), encoding="utf-8")
+          print(result)
+          PY
+
+      - name: Upload cloud output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ashcloud-result-${{ github.run_id }}
+          path: cloud-output/
+          retention-days: 3
