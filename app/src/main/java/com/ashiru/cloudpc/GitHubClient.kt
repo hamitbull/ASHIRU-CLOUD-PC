@@ -40,14 +40,19 @@ class GitHubClient(private val token: String) {
     }
 
     fun dispatch(jobType: String, payload: String) {
+        if (jobType == "build_apk") {
+            val json = JSONObject().put("ref", "main")
+            request("/actions/workflows/android-build.yml/dispatches", "POST", json.toString())
+            return
+        }
         val json = JSONObject()
             .put("ref", "main")
             .put("inputs", JSONObject().put("job_type", jobType).put("payload", payload.take(12000)))
         request("/actions/workflows/cloud-job.yml/dispatches", "POST", json.toString())
     }
 
-    fun latestRun(): WorkflowState? {
-        val json = JSONObject(request("/actions/workflows/cloud-job.yml/runs?per_page=1"))
+    private fun latestRun(workflow: String): WorkflowState? {
+        val json = JSONObject(request("/actions/workflows/$workflow/runs?per_page=1"))
         val runs = json.optJSONArray("workflow_runs") ?: return null
         if (runs.length() == 0) return null
         val run = runs.getJSONObject(0)
@@ -59,8 +64,11 @@ class GitHubClient(private val token: String) {
         )
     }
 
-    fun latestArtifactUrl(): String? {
-        val run = latestRun() ?: return null
+    fun latestRun(): WorkflowState? = latestRun("cloud-job.yml")
+    fun latestBuildRun(): WorkflowState? = latestRun("android-build.yml")
+
+    fun latestArtifactUrl(build: Boolean = false): String? {
+        val run = if (build) latestBuildRun() else latestRun() ?: return null
         val json = JSONObject(request("/actions/runs/${run.runId}/artifacts"))
         val artifacts = json.optJSONArray("artifacts") ?: return null
         if (artifacts.length() == 0) return null
