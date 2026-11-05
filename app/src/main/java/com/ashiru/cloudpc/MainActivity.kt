@@ -107,8 +107,10 @@ class MainActivity : Activity() {
         })
 
         content.addView(section("JOB CONTROL"))
-        content.addView(button("CHECK LATEST JOB STATUS") { checkStatus() })
-        content.addView(button("OPEN LATEST JOB / OUTPUT") { openLatestRun() })
+        content.addView(button("CHECK LATEST CLOUD JOB") { checkStatus() })
+        content.addView(button("OPEN LATEST CLOUD JOB") { openLatestRun() })
+        content.addView(button("CHECK APK BUILD STATUS") { checkBuildStatus() })
+        content.addView(button("OPEN APK BUILD PAGE") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/hamitbull/ASHIRU-CLOUD-PC/actions/workflows/android-build.yml"))) })
         content.addView(button("OPEN LATEST RESULT ARTIFACT") { openArtifact() })
 
         content.addView(section("OUTPUT"))
@@ -180,6 +182,22 @@ class MainActivity : Activity() {
                     output.text = "Run ID: ${run.runId}\n${run.htmlUrl}"
                 }
             } catch (e: Exception) { showError(e.message ?: "Duba status ya gagara") }
+        }
+    }
+
+
+    private fun checkBuildStatus() {
+        val token = vault.read() ?: run { showError("Ajiye GitHub token da farko."); return }
+        status.text = "Status: Ana duba APK build..."
+        lifecycleScope.launch {
+            try {
+                val run = withContext(Dispatchers.IO) { GitHubClient(token).latestBuildRun() }
+                if (run == null) status.text = "Status: Ba a sami APK build ba tukuna."
+                else {
+                    status.text = "APK Build: ${run.status} / ${run.conclusion ?: "pending"}"
+                    output.text = "APK build run ID: ${run.runId}\\n${run.htmlUrl}"
+                }
+            } catch (e: Exception) { showError(e.message ?: "Duba APK build ya gagara") }
         }
     }
 
