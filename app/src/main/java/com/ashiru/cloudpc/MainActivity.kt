@@ -177,7 +177,7 @@ class MainActivity : Activity() {
     private fun checkStatus() {
         val token = vault.read() ?: run { showError("Ajiye GitHub token da farko."); return }
         status.text = "Status: Ana duba..."
-        lifecycleScope.launch {
+        activityScope.launch {
             try {
                 val run = withContext(Dispatchers.IO) { GitHubClient(token).latestRun() }
                 if (run == null) status.text = "Status: Ba a sami job ba tukuna."
@@ -193,13 +193,13 @@ class MainActivity : Activity() {
     private fun checkBuildStatus() {
         val token = vault.read() ?: run { showError("Ajiye GitHub token da farko."); return }
         status.text = "Status: Ana duba APK build..."
-        lifecycleScope.launch {
+        activityScope.launch {
             try {
                 val run = withContext(Dispatchers.IO) { GitHubClient(token).latestBuildRun() }
                 if (run == null) status.text = "Status: Ba a sami APK build ba tukuna."
                 else {
                     status.text = "APK Build: ${run.status} / ${run.conclusion ?: "pending"}"
-                    output.text = "APK build run ID: ${run.runId}\\n${run.htmlUrl}"
+                    output.text = "APK build run ID: ${run.runId}\n${run.htmlUrl}"
                 }
             } catch (e: Exception) { showError(e.message ?: "Duba APK build ya gagara") }
         }
@@ -207,7 +207,7 @@ class MainActivity : Activity() {
 
     private fun openLatestRun() {
         val token = vault.read() ?: run { showError("Ajiye GitHub token da farko."); return }
-        lifecycleScope.launch {
+        activityScope.launch {
             try {
                 val run = withContext(Dispatchers.IO) { GitHubClient(token).latestRun() }
                 if (run != null) startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(run.htmlUrl)))
@@ -218,7 +218,7 @@ class MainActivity : Activity() {
 
     private fun openArtifact() {
         val token = vault.read() ?: run { showError("Ajiye GitHub token da farko."); return }
-        lifecycleScope.launch {
+        activityScope.launch {
             try {
                 val url = withContext(Dispatchers.IO) { GitHubClient(token).latestArtifactUrl() }
                 if (url != null) {
