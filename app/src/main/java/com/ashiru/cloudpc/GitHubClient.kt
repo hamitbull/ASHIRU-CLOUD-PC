@@ -68,7 +68,7 @@ class GitHubClient(private val token: String) {
     fun latestBuildRun(): WorkflowState? = latestRun("android-build.yml")
 
     fun latestArtifactUrl(build: Boolean = false): String? {
-        val run = if (build) latestBuildRun() else latestRun() ?: return null
+        val run = (if (build) latestBuildRun() else latestRun()) ?: return null
         val json = JSONObject(request("/actions/runs/${run.runId}/artifacts"))
         val artifacts = json.optJSONArray("artifacts") ?: return null
         if (artifacts.length() == 0) return null
