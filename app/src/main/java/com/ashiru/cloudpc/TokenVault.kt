@@ -43,18 +43,20 @@ class TokenVault(context: Context) {
             .apply()
     }
 
-    fun read(): String? = try {
-        val iv = prefs.getString("iv", null) ?: return null
-        val data = prefs.getString("data", null) ?: return null
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            key(),
-            GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP))
-        )
-        String(cipher.doFinal(Base64.decode(data, Base64.NO_WRAP)), Charsets.UTF_8)
-    } catch (_: Exception) {
-        null
+    fun read(): String? {
+        return try {
+            val iv = prefs.getString("iv", null) ?: return null
+            val data = prefs.getString("data", null) ?: return null
+            val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                key(),
+                GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP))
+            )
+            String(cipher.doFinal(Base64.decode(data, Base64.NO_WRAP)), Charsets.UTF_8)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun clear() { prefs.edit().clear().apply() }
